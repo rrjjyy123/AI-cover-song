@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 커버곡 직접 만들며 원리 탐구하기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        
+        .section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease-in-out;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .activity-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin: 1rem;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            min-width: 200px;
+            text-align: center;
+        }
+        
+        .activity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        .site-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+            cursor: pointer;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .site-card:hover {
+            transform: scale(1.05);
+            border-color: #3b82f6;
+        }
+        
+        .step-card {
+            background: linear-gradient(45deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 0.5rem 0;
+            color: #1f2937;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 450px;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        
+        .video-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(45deg, #1e3a8a, #3b82f6);
+            color: white;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+            transition: width 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .floating-nav {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+        }
+        
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #d1d5db;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-dot.active {
+            background: #3b82f6;
+            transform: scale(1.3);
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 0.5rem 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid #3b82f6;
+        }
+
+        .warning-card {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .tab-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            margin: 0.25rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .tab-button.active {
+            background: white;
+            color: #059669;
+            border-color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+
+        .question-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid #3b82f6;
+            transition: all 0.3s ease;
+        }
+
+        .question-content {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .question-content.show {
+            display: block;
+        }
+
+        .answer-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            font-family: 'Noto Sans KR', sans-serif;
+            background: #ffffff;
+            color: #111827;
+        }
+
+        .answer-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        .answer-input::placeholder {
+            color: #6b7280;
+        }
+
+        /* 마무리 레이어 카드 스타일 */
+        .layer-card {
+            border-radius: 16px;
+            padding: 1rem 1.25rem;
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+        .layer-1 {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+        .layer-2 {
+            background: linear-gradient(90deg, #f97316, #fb7185);
+        }
+        .layer-3 {
+            background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+        }
+        .layer-title {
+            display: block;
+            width: 100%;
+            text-align: left;
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: #fff;
+        }
+        .layer-content {
+            background: rgba(255,255,255,0.18);
+            border-radius: 12px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50">
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <div class="floating-nav" id="floatingNav">
+        <div class="nav-dot active" onclick="scrollToSection(0)"></div>
+        <div class="nav-dot" onclick="scrollToSection(1)"></div>
+        <div class="nav-dot" onclick="scrollToSection(2)"></div>
+        <div class="nav-dot" onclick="scrollToSection(3)"></div>
+        <div class="nav-dot" onclick="scrollToSection(4)"></div>
+    </div>
+
+    <!-- 0. 메인 페이지 -->
+    <section class="section bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 text-white" id="section0">
+        <div class="text-center max-w-4xl fade-in">
+            <h1 class="text-5xl font-bold mb-8">🎵 AI 커버곡 직접 만들며 원리 탐구하기 🎵</h1>
+            
+            <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8 mb-8">
+                <h2 class="text-3xl font-bold mb-4 flex items-center justify-center">
+                    🎯 학습 목표
+                </h2>
+                <p class="text-xl leading-relaxed">
+                    인공지능을 활용하여 AI 커버곡을 제작하는 과정을 체험해 봅시다!
+                </p>
+            </div>
+            
+            <div class="flex flex-wrap justify-center gap-4">
+                <div class="activity-card" onclick="scrollToSection(1)">
+                    <div class="text-2xl mb-2">🔍</div>
+                    <div class="font-semibold">[활동1]</div>
+                    <div>AI 커버곡 원리 알아보기</div>
+                </div>
+                <div class="activity-card" onclick="scrollToSection(2)">
+                    <div class="text-2xl mb-2">🎤</div>
+                    <div class="font-semibold">[활동2]</div>
+                    <div>AI 커버곡 만들기</div>
+                </div>
+                <div class="activity-card" onclick="scrollToSection(3)">
+                    <div class="text-2xl mb-2">🤝</div>
+                    <div class="font-semibold">[활동3]</div>
+                    <div>공유하기</div>
+                </div>
+            </div>
+            
+            <button onclick="scrollToSection(1)" class="mt-8 bg-white text-purple-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors">
+                시작하기 ⬇️
+            </button>
+        </div>
+    </section>
+
+    <!-- 1. 활동1 - AI 커버곡의 원리 -->
+    <section class="section bg-gradient-to-br from-blue-400 to-cyan-500 text-white" id="section1">
+        <div class="max-w-6xl w-full fade-in">
+            <h2 class="text-4xl font-bold text-center mb-12">🔍 [활동 1] AI 커버곡의 원리는?</h2>
+            
+            <div class="grid md:grid-cols-2 gap-8 mb-12">
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8">
+                    <h3 class="text-2xl font-bold mb-6 flex items-center">
+                        🧠 딥러닝이란?
+                    </h3>
+                    <p class="text-lg leading-relaxed mb-6">
+                        인공신경망이 여러 층으로 쌓여 반복 학습하는 것입니다. 
+                        마치 우리 뇌가 경험을 통해 학습하는 것처럼, 
+                        컴퓨터도 많은 데이터를 보고 패턴을 찾아 학습합니다.
+                    </p>
+                    
+                    <div class="video-container">
+                        <div class="video-placeholder">
+                            <div>
+                                <div class="text-xl mb-4">📚 소프트웨어야 놀자</div>
+                                <div class="text-lg">'딥러닝' 영상</div>
+                                <button onclick="window.open('https://www.playsw.or.kr/artificial/view/playswtv/682?currentTab=ai_data_video_hello_ai&path=artificial', '_blank')" class="mt-4 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-full font-semibold transition-colors">
+                                    ▶️ 딥러닝 영상 보기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8">
+                    <h3 class="text-2xl font-bold mb-6 flex items-center">
+                        🎵 AI 커버곡 생성 원리
+                    </h3>
+                    <div class="mb-6">
+                        <img src="1.PNG" alt="AI 커버곡 생성 원리" class="w-full rounded-lg mb-4">
+                        <p class="text-sm text-center opacity-80">
+                            <a href="https://www.playsw.or.kr/artificial/textbook/detail/263" target="_blank" class="hover:underline">
+                                이미지 출처: 소프트웨어야 놀자 – 생성형 인공지능 윤리 2
+                            </a>
+                        </p>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-black font-bold">1</div>
+                            <p>가수의 목소리 특징을 딥러닝으로 학습</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-black font-bold">2</div>
+                            <p>학습된 데이터로 음성 모델 생성</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-black font-bold">3</div>
+                            <p>다른 노래에 음성 모델을 합성</p>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-black font-bold">4</div>
+                            <p>새로운 AI 커버곡 완성! 🎉</p>
+                        </div>
+                    </div>
+                </div>
+
+                
+            </div>
+            
+            <div class="text-center">
+                <button onclick="scrollToSection(2)" class="bg-white text-blue-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors">
+                    이제 직접 만들어보자! 🎤
+                </button>
+            </div>
+        </div>
+    </section>
+
+    
+
+    <!-- 2. 활동2 - AI 커버곡 만들기 -->
+    <section class="section bg-gradient-to-br from-green-400 to-blue-500 text-white" id="section2">
+        <div class="max-w-6xl w-full fade-in">
+            <h2 class="text-4xl font-bold text-center mb-12">🎤 [활동 2] AI 커버곡 만들기</h2>
+            
+            <div class="mb-12">
+                <h3 class="text-2xl font-bold text-center mb-8">🌐 사이트 비교</h3>
+                
+                <!-- 탭 네비게이션 -->
+                <div class="flex flex-wrap justify-center mb-6">
+                    <button class="tab-button active" onclick="showTab('topmediai')">TopMediai</button>
+                    <button class="tab-button" onclick="showTab('kitsai')">kits AI</button>
+                    <button class="tab-button" onclick="showTab('musicfy')">Musicfy AI</button>
+                    <button class="tab-button" onclick="showTab('sorisori')">소리소리AI</button>
+                </div>
+                
+                <!-- 탭 콘텐츠 -->
+                <div class="tab-content-container">
+                    <div id="topmediai" class="tab-content active">
+                        <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8">
+                            <div class="flex items-center mb-6">
+                                <div class="text-4xl mr-4">🎵</div>
+                                <div>
+                                    <h4 class="text-2xl font-bold">TopMediai</h4>
+                                    <p class="text-lg opacity-80">한국어 지원 AI 음성 변환</p>
+                                </div>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">✅ 장점</h5>
+                                    <ul class="space-y-2 text-sm">
+                                        <li>• 한국 가수 모델 다수 지원</li>
+                                        <li>• 유튜브 링크로 바로 생성 가능</li>
+                                        <li>• 무료로 2곡까지 체험</li>
+                                        <li>• 직관적인 인터페이스</li>
+                                       
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">⚠️ 주의사항</h5>
+                                    <ul class="space-y-2 text-sm">
+                                        <li>• 구글 계정으로 로그인 필요</li>
+                                        <li>• 무료 계정은 다운로드 불가</li>
+                                        <li>• 청취만 가능</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <button onclick="window.open('https://kr.topmediai.com/ai-song-cover/', '_blank')" class="mt-6 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-full font-semibold transition-colors">
+                                TopMediai 사이트로 이동 →
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="kitsai" class="tab-content">
+                        <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8">
+                            <div class="flex items-center mb-6">
+                                <div class="text-4xl mr-4">🎙️</div>
+                                <div>
+                                    <h4 class="text-2xl font-bold">kits AI</h4>
+                                    <p class="text-lg opacity-80">영어 기반 AI 보컬 변환</p>
+                                </div>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">✅ 장점</h5>
+                                    <ul class="space-y-2 text-sm">
+                                        <li>• 음색/장르별 모델 선택</li>
+                                        <li>• 월 15분 무료 제공</li>
+                                        <li>• 고품질 음성 변환</li>
+                                        <li>• 특정 아티스트 모델이 아닌 목소리 특징 활용</li>
+                                       
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">⚠️ 주의사항</h5>
+                                    <ul class="space-y-2 text-sm">
+                                      
+                                     
+                                        <li>• 구글 계정으로 로그인 필요</li>
+                                        <li>• 오디오 업로드/녹음 필요</li>
+                                        <li>• 유튜브 링크 입력 불가</li>
+                                        <li>• 무료 계정은 다운로드 불가</li>
+                                        <li>• 링크로만 공유 가능</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <button onclick="window.open('https://app.kits.ai', '_blank')" class="mt-6 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-full font-semibold transition-colors">
+                                kits AI 사이트로 이동 →
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="musicfy" class="tab-content">
+                        <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8">
+                            <div class="flex items-center mb-6">
+                                <div class="text-4xl mr-4">🎼</div>
+                                <div>
+                                    <h4 class="text-2xl font-bold">Musicfy AI</h4>
+                                    <p class="text-lg opacity-80">영어 기반 AI 음악 생성</p>
+                                </div>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">✅ 장점</h5>
+                                    <ul class="space-y-2 text-sm">
+                                        <li>• 외국인 모델 다수 보유</li>
+                                        <li>• 하루 3곡 무료 생성</li>
+                                        <li>• 빠른 처리 속도</li>
+                                        <li>• 직관적인 인터페이스</li>
+                                        <li>• AI 보컬 커스터마이징</li>
+                                        <li>• 결과물 다운로드 가능</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">⚠️ 주의사항</h5>
+                                    <ul class="space-y-2 text-sm">
+                                      
+                              
+                                        <li>• 구글 계정으로 로그인 필요</li>
+                                        <li>• 오디오 파일 필요</li>
+                                        <li>• 유튜브 링크 입력 불가</li>
+                                        
+                                    </ul>
+                                </div>
+                            </div>
+                            <button onclick="window.open('https://musicfy.lol/', '_blank')" class="mt-6 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-full font-semibold transition-colors">
+                                Musicfy AI 사이트로 이동 →
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="sorisori" class="tab-content">
+                        <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8">
+                            <div class="flex items-center mb-6">
+                                <div class="text-4xl mr-4">🎶</div>
+                                <div>
+                                    <h4 class="text-2xl font-bold">소리소리AI</h4>
+                                    <p class="text-lg opacity-80">한국어 기반 AI 음성 합성</p>
+                                </div>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">✅ 장점</h5>
+                                    <ul class="space-y-2 text-sm">
+                                        <li>• 한국어 기반 서비스</li>
+                                       
+                                        <li>• 월 2곡까지 무료</li>
+                                        <li>• 한국 가수 모델 특화</li>
+                                        <li>• 유튜브 링크로 바로 생성</li>
+                                        <li>• 노래 파일 없이도 사용 가능</li>
+                                        <li>• 결과물 다운로드 가능</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg mb-3">⚠️ 주의사항</h5>
+                                    <ul class="space-y-2 text-sm">
+                                        <li>• 구글 계정으로 로그인 필요</li>
+                                        <li>• 광고 및 워터마크 포함</li>
+                                        <li>• 짧은 체험 시간(45초)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <button onclick="window.open('https://app.sorisori.ai', '_blank')" class="mt-6 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-full font-semibold transition-colors">
+                                소리소리AI 사이트로 이동 →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8 mb-8">
+                <h3 class="text-2xl font-bold mb-6 text-center">📋 만드는 방법 (5단계)</h3>
+                <div class="space-y-4">
+                    <div class="step-card">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">1</div>
+                            <div>
+                                <h4 class="font-bold">사이트 접속</h4>
+                                <p class="text-sm">선생님의 안내에 따라 AI 커버곡 생성 사이트를  접속하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">2</div>
+                            <div>
+                                <h4 class="font-bold">AI 목소리 모델 선택</h4>
+                                <p class="text-sm">원하는 가수나 캐릭터의 목소리 모델을 선택하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">3</div>
+                            <div>
+                                <h4 class="font-bold">노래(음원) 업로드 또는 유튜브 링크 입력</h4>
+                                <p class="text-sm">변환하고 싶은 노래 파일을 업로드하거나 유튜브 링크를 입력하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">4</div>
+                            <div>
+                                <h4 class="font-bold">(필요시) 세부 설정</h4>
+                                <p class="text-sm">음질, 속도 등 필요한 설정을 조정하세요</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-card">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">5</div>
+                            <div>
+                                <h4 class="font-bold">커버곡 생성</h4>
+                                <p class="text-sm">생성 버튼을 클릭하고 완성될 때까지 기다리세요</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-6 rounded-lg mb-8">
+                <div class="flex items-center mb-4">
+                    <div class="text-2xl mr-4">⚠️</div>
+                    <h4 class="font-bold text-lg">꼭! 주의하세요</h4>
+                </div>
+                <div class="space-y-3">
+                    <div>
+                        <h5 class="font-bold">📋 저작권 준수</h5>
+                        <p class="text-sm">동요, 직접 만든 노래 등 저작권 문제가 없는 곡을 사용하세요! 최신 음원 사용 시 저작권에 주의해주세요.</p>
+                    </div>
+                    <div>
+                        <h5 class="font-bold">🎵 결과물 활용</h5>
+                        <p class="text-sm">생성된 결과물은 수업에서만 듣고 공유하지 않기! 개인 감상 및 수업용으로만 사용해주세요.</p>
+                    </div>
+                    <div>
+                        <h5 class="font-bold">📄 약관 확인</h5>
+                        <p class="text-sm">각 사이트의 데이터 처리 방침과 이용 약관을 확인해주세요.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center">
+                <button onclick="scrollToSection(3)" class="bg-white text-green-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors">
+                    완성했다면 공유해보자! 🤝
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. 활동3 - 공유하기 -->
+    <section class="section bg-gradient-to-br from-purple-400 to-pink-500 text-white" id="section3">
+        <div class="max-w-4xl w-full text-center fade-in">
+            <h2 class="text-4xl font-bold mb-12">🤝 [활동 3] 우리가 만든 AI 커버곡</h2>
+            
+            <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-12 mb-8">
+                <div class="text-6xl mb-6">🎉</div>
+                <h3 class="text-3xl font-bold mb-6">축하합니다!</h3>
+                <p class="text-xl leading-relaxed mb-8">
+                    우리가 만든 AI 커버곡을 <br>
+                    친구들과 함께 들어볼까요?
+                </p>
+                
+                <div class="bg-yellow-400 bg-opacity-30 p-6 rounded-xl mb-6">
+                    <p class="text-lg font-semibold">
+                        잘 듣고 어떤 목소리로 어떤 노래를 만들었는지 맞추어 봅시다!
+                    </p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 gap-6 mt-8">
+                    <div class="bg-yellow-400 text-yellow-900 p-6 rounded-xl">
+                        <div class="text-3xl mb-4">👥</div>
+                        <h4 class="font-bold text-lg mb-2">모둠 친구들과 공유</h4>
+                        <p class="text-sm">같은 모둠 친구들에게 내가 만든 커버곡을 들려주세요</p>
+                    </div>
+                    <div class="bg-green-400 text-green-900 p-6 rounded-xl">
+                        <div class="text-3xl mb-4">🏫</div>
+                        <h4 class="font-bold text-lg mb-2">전체 학급과 공유</h4>
+                        <p class="text-sm">학급 전체에 내 작품을 발표해보세요</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-blue-100 text-blue-800 p-6 rounded-xl mb-8">
+                <h4 class="font-bold text-lg mb-4">💭 생각해볼 질문들</h4>
+                <div class="space-y-4">
+                    <div class="question-card">
+                        <button onclick="toggleQuestion('q1')" class="w-full text-left font-semibold text-lg">
+                            🔍 어떤 목소리 모델을 선택했나요? 그 이유는?
+                        </button>
+                        <div id="q1" class="question-content">
+                            <textarea class="answer-input" placeholder="여기에 답변을 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="question-card">
+                        <button onclick="toggleQuestion('q2')" class="w-full text-left font-semibold text-lg">
+                            🎵 만든 커버곡이 원곡과 어떻게 다른가요?
+                        </button>
+                        <div id="q2" class="question-content">
+                            <textarea class="answer-input" placeholder="여기에 답변을 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="question-card">
+                        <button onclick="toggleQuestion('q3')" class="w-full text-left font-semibold text-lg">
+                            🤖 AI가 만든 노래와 사람이 부른 노래의 차이점은?
+                        </button>
+                        <div id="q3" class="question-content">
+                            <textarea class="answer-input" placeholder="여기에 답변을 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="question-card">
+                        <button onclick="toggleQuestion('q4')" class="w-full text-left font-semibold text-lg">
+                            ✨ 가장 신기했던 부분은 무엇인가요?
+                        </button>
+                        <div id="q4" class="question-content">
+                            <textarea class="answer-input" placeholder="여기에 답변을 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="scrollToSection(4)" class="bg-white text-purple-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors">
+                마무리하기 📝
+            </button>
+        </div>
+    </section>
+
+    <!-- 4. 마무리 및 다음 시간 예고 -->
+    <section class="section bg-gradient-to-br from-orange-400 to-red-500 text-white" id="section4">
+        <div class="max-w-4xl w-full text-center fade-in">
+            <h2 class="text-4xl font-bold mb-12">📝 마무리 및 다음 시간 예고</h2>
+            
+            <!-- 토론을 위한 질문 -->
+            <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8 mb-8">
+                <h3 class="text-2xl font-bold mb-6">🤔 토론을 위한 질문</h3>
+                <div class="space-y-6 text-lg">
+                    <!-- 레이어 1 -->
+                    <div class="layer-card layer-1">
+                        <button onclick="toggleQuestion('f_q1')" class="layer-title">우리가 만든 노래를 인터넷에 마음대로 올려도 될까요?</button>
+                        <div id="f_q1" class="question-content layer-content">
+                            <textarea class="answer-input" placeholder="생각을 적어보세요..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 레이어 2 -->
+                    <div class="layer-card layer-2">
+                        <button onclick="toggleQuestion('f_q2')" class="layer-title">다른 사람이 내 목소리로 노래를 만들어 올린다면 어떨까요?</button>
+                        <div id="f_q2" class="question-content layer-content">
+                            <textarea class="answer-input" placeholder="생각을 적어보세요..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 레이어 3 -->
+                    <div class="layer-card layer-3">
+                        <button onclick="toggleQuestion('f_q3')" class="layer-title">AI 커버곡을 만들 때 지켜야 할 규칙이 있을까요?</button>
+                        <div id="f_q3" class="question-content layer-content">
+                            <textarea class="answer-input" placeholder="생각을 적어보세요..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 딥 보이스 설명 -->
+                <div class="mt-6 bg-white bg-opacity-60 text-gray-900 p-6 rounded-xl text-left">
+                    <h5 class="font-bold mb-2">🗣️ 딥 보이스란?</h5>
+                    <p class="text-base">인공지능(AI) 딥러닝 기술을 활용해 특정 인물의 목소리를 학습해 자연스러운 음성을 합성하는 기술.</p>
+                </div>
+            </div>
+
+            <!-- 다음 시간 수업 안내 -->
+            <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-8 mb-8">
+                <h3 class="text-2xl font-bold mb-4">📚 다음 시간 수업 안내</h3>
+                <p class="text-xl leading-relaxed">
+                    다음 시간에는 실제 사례를 통해<br>
+                    AI 음성합성에 대한 윤리적인 문제에 대해 알아보겠습니다.
+                </p>
+                <div class="mt-6 text-lg">
+                    <span class="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-full font-semibold">
+                        2차시: AI 윤리 법정 🗣️
+                    </span>
+                </div>
+            </div>
+
+            <!-- 하단 버튼들 -->
+            <div class="flex flex-wrap justify-center gap-4">
+                <button onclick="scrollToSection(0)" class="bg-white text-orange-600 px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors">
+                    처음으로 돌아가기 🔄
+                </button>
+                
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // 탭 기능
+        function showTab(tabId) {
+            // 모든 탭 콘텐츠 숨기기
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // 모든 탭 버튼 비활성화
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // 선택된 탭 콘텐츠 보이기
+            document.getElementById(tabId).classList.add('active');
+            
+            // 선택된 탭 버튼 활성화
+            event.target.classList.add('active');
+        }
+
+        // 질문 토글 기능
+        function toggleQuestion(questionId) {
+            const questionContent = document.getElementById(questionId);
+            questionContent.classList.toggle('show');
+        }
+
+        // 스크롤 애니메이션
+        function scrollToSection(index) {
+            const section = document.getElementById(`section${index}`);
+            section.scrollIntoView({ behavior: 'smooth' });
+            updateNavigation(index);
+        }
+
+        // 네비게이션 업데이트
+        function updateNavigation(activeIndex) {
+            const dots = document.querySelectorAll('.nav-dot');
+            dots.forEach((dot, index) => {
+                if (index === activeIndex) {
+                    dot.classList.add('active');
+                } else {
+                    dot.classList.remove('active');
+                }
+            });
+        }
+
+        // 스크롤 진행률 업데이트
+        function updateProgressBar() {
+            const scrollTop = window.pageYOffset;
+            const docHeight = document.body.scrollHeight - window.innerHeight;
+            const scrollPercent = (scrollTop / docHeight) * 100;
+            document.getElementById('progressBar').style.width = scrollPercent + '%';
+        }
+
+        // 페이드인 애니메이션
+        function handleFadeIn() {
+            const elements = document.querySelectorAll('.fade-in');
+            elements.forEach(element => {
+                const elementTop = element.getBoundingClientRect().top;
+                const elementVisible = 150;
+                
+                if (elementTop < window.innerHeight - elementVisible) {
+                    element.classList.add('visible');
+                }
+            });
+        }
+
+        // 현재 섹션 감지
+        function detectCurrentSection() {
+            const sections = document.querySelectorAll('section');
+            let currentSection = 0;
+            
+            sections.forEach((section, index) => {
+                const rect = section.getBoundingClientRect();
+                if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
+                    currentSection = index;
+                }
+            });
+            
+            updateNavigation(currentSection);
+        }
+
+        // 이벤트 리스너
+        window.addEventListener('scroll', () => {
+            updateProgressBar();
+            handleFadeIn();
+            detectCurrentSection();
+        });
+
+        window.addEventListener('load', () => {
+            handleFadeIn();
+            updateProgressBar();
+        });
+
+        // 키보드 네비게이션
+        document.addEventListener('keydown', (e) => {
+            const currentActive = document.querySelector('.nav-dot.active');
+            const currentIndex = Array.from(document.querySelectorAll('.nav-dot')).indexOf(currentActive);
+            
+            if (e.key === 'ArrowDown' && currentIndex < 4) {
+                scrollToSection(currentIndex + 1);
+            } else if (e.key === 'ArrowUp' && currentIndex > 0) {
+                scrollToSection(currentIndex - 1);
+            }
+        });
+
+        // 초기 애니메이션 실행
+        setTimeout(() => {
+            handleFadeIn();
+        }, 500);
+    </script>
+</body>
+</html>
